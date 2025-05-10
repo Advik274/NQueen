@@ -1,4 +1,4 @@
-src/app/results/[n]/page.tsx
+
 import ResultsClient from '@/components/queen-solver/ResultsClient';
 import { solveNQueensAllSolutions } from '@/lib/nqueens';
 import { AlertTriangle } from 'lucide-react';
@@ -38,3 +38,4 @@ export default function ResultsPage({ params }: ResultsPageProps) {
 
   return <ResultsClient n={n} allSolutionsRaw={allSolutions} />;
 }
+
