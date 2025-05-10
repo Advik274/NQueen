@@ -12,8 +12,35 @@ interface ChessboardProps {
 
 export default function Chessboard({ sizeN, queens, className }: ChessboardProps) {
   const boardCells = [];
+  const cellTotalSize = sizeN + 1; // For labels
+
+  // Column Labels (A, B, ...)
+  for (let c = 0; c < cellTotalSize; c++) {
+    boardCells.push(
+      <div
+        key={`label-col-${c}`}
+        className={cn(
+          "aspect-square flex items-center justify-center text-xs font-medium text-muted-foreground",
+          c === 0 ? "bg-transparent" : "bg-transparent" // Top-left corner vs col labels
+        )}
+      >
+        {c > 0 ? String.fromCharCode(64 + c) : ''}
+      </div>
+    );
+  }
 
   for (let r = 0; r < sizeN; r++) {
+    // Row Label (1, 2, ...)
+    boardCells.push(
+      <div
+        key={`label-row-${r}`}
+        className="aspect-square flex items-center justify-center text-xs font-medium text-muted-foreground bg-transparent"
+      >
+        {r + 1}
+      </div>
+    );
+
+    // Board Cells
     for (let c = 0; c < sizeN; c++) {
       const isDark = (r + c) % 2 !== 0;
       const queen = queens.find(q => q.row === r && q.col === c);
@@ -22,8 +49,8 @@ export default function Chessboard({ sizeN, queens, className }: ChessboardProps
         <div
           key={`${r}-${c}`}
           className={cn(
-            "aspect-square flex items-center justify-center",
-            isDark ? 'bg-primary' : 'bg-background', // Dark: #003366, Light: #f0f0f0
+            "aspect-square flex items-center justify-center border border-border/30",
+            isDark ? 'bg-primary/80' : 'bg-background', 
             "transition-colors duration-300"
           )}
           data-testid={`cell-${r}-${c}`}
@@ -37,12 +64,13 @@ export default function Chessboard({ sizeN, queens, className }: ChessboardProps
   }
 
   const gridStyle = {
-    gridTemplateColumns: `repeat(${sizeN}, minmax(0, 1fr))`,
+    gridTemplateColumns: `repeat(${cellTotalSize}, minmax(0, 1fr))`,
+    gridTemplateRows: `repeat(${cellTotalSize}, minmax(0, auto))`, // Ensure labels fit
   };
 
   return (
     <div 
-      className={cn("grid border border-border shadow-lg rounded-md overflow-hidden", className)} 
+      className={cn("grid border border-border shadow-lg rounded-md overflow-hidden bg-card p-1", className)} 
       style={gridStyle}
       role="grid"
       aria-label={`Chessboard of size ${sizeN}x${sizeN}`}

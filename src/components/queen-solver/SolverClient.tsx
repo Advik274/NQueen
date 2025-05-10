@@ -4,98 +4,154 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import Chessboard from './Chessboard';
 import type { QueenPosition } from '@/lib/nqueens';
-import { getAnimationPlacementSteps, solveNQueensOneSolution } from '@/lib/nqueens';
+import { getBacktrackingAnimationSteps } from '@/lib/nqueens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
 import { Label } from '@/components/ui/label';
-import { Loader2, Play, Pause, FastForward, RotateCcw, SkipForward, Plus, Minus } from 'lucide-react';
+import { Loader2, Play, Pause, RotateCcw, SkipForward, Plus, Minus, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
 interface SolverClientProps {
   initialN: number;
 }
 
-const MIN_SPEED_MS = 200; // 0.2s
-const MAX_SPEED_MS = 2000; // 2s
-const DEFAULT_SPEED_MS = 1000; // 1s
+const MIN_SPEED_MS = 100; 
+const MAX_SPEED_MS = 2000;
+const DEFAULT_SPEED_MS = 500; 
 
 export default function SolverClient({ initialN }: SolverClientProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [n, setN] = useState<number>(initialN);
+  
   const [queens, setQueens] = useState<QueenPosition[]>([]);
-  const [animationSteps, setAnimationSteps] = useState<QueenPosition[][]>([]);
+  const [animationStates, setAnimationStates] = useState<QueenPosition[][]>([]);
+  const [solutionsFoundIndices, setSolutionsFoundIndices] = useState<number[]>([]);
+  const [allSolutionsRaw, setAllSolutionsRaw] = useState<number[][]>([]);
+
   const [currentStep, setCurrentStep] = useState<number>(0);
   const [isPlaying, setIsPlaying] = useState<boolean>(true);
-  const [animationSpeed, setAnimationSpeed] = useState<number>(DEFAULT_SPEED_MS); // ms per step
-  const [solution, setSolution] = useState<number[] | null>(null);
-  const [isSolved, setIsSolved] = useState<boolean>(false);
+  const [animationSpeed, setAnimationSpeed] = useState<number>(DEFAULT_SPEED_MS);
+  
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [currentSolutionDisplayIndex, setCurrentSolutionDisplayIndex] = useState<number>(0); // For tracking which solution # is found
 
   useEffect(() => {
-    const steps = getAnimationPlacementSteps(n);
-    const sol = solveNQueensOneSolution(n);
+    setIsLoading(true);
+    const { 
+      animationStates: newAnimationStates, 
+      solutionsFoundIndices: newSolutionsFoundIndices, 
+      allSolutionsRaw: newAllSolutionsRaw 
+    } = getBacktrackingAnimationSteps(n);
     
-    if (!sol || steps.length === 0) {
+    setAnimationStates(newAnimationStates);
+    setSolutionsFoundIndices(newSolutionsFoundIndices);
+    setAllSolutionsRaw(newAllSolutionsRaw);
+
+    if (newAnimationStates.length > 0) {
+      setQueens(newAnimationStates[0] || []);
+    } else {
+      setQueens([]); // Should not happen if getBacktrackingAnimationSteps ensures at least an empty state
+    }
+    
+    setCurrentStep(0);
+    setIsPlaying(true);
+    setCurrentSolutionDisplayIndex(0);
+    setIsLoading(false);
+
+    if (newAllSolutionsRaw.length === 0 && newAnimationStates.length <=1 && (n === 2 || n === 3 || n < 1) ) { // check for trivial no solution cases
         toast({
-            title: "No Solution Found",
-            description: `Could not find a solution for N=${n}. This might happen for N < 4.`,
+            title: "No Solutions Possible",
+            description: `The N-Queen problem has no solutions for N=${n}.`,
             variant: "destructive",
         });
-        router.push('/input-queens'); // Go back if no solution
-        return;
     }
 
-    setAnimationSteps(steps);
-    setSolution(sol);
-    setQueens(steps[0] || []);
-    setCurrentStep(0);
-    setIsSolved(false);
-    setIsPlaying(true);
-  }, [n, router, toast]);
+  }, [n, toast]);
 
   useEffect(() => {
-    if (!isPlaying || currentStep >= animationSteps.length -1 || isSolved) {
-      if (currentStep >= animationSteps.length -1 && animationSteps.length > 0) {
-        setIsSolved(true);
-        setIsPlaying(false);
+    if (!isPlaying || currentStep >= animationStates.length -1 || isLoading) {
+      if (currentStep >= animationStates.length -1 && animationStates.length > 0 && !isLoading) {
+        setIsPlaying(false); // Animation ended
+        if (allSolutionsRaw.length === 0 && (n !==2 && n !== 3 && n>=1)) {
+             toast({
+                title: "Search Complete",
+                description: `No solutions found for N=${n} after exploring all possibilities.`,
+                variant: "default",
+            });
+        } else if (allSolutionsRaw.length > 0) {
+             toast({
+                title: `Search Complete: ${allSolutionsRaw.length} Solution(s) Found`,
+                description: `All possible placements explored for N=${n}.`,
+            });
+        }
       }
       return;
     }
 
     const timer = setTimeout(() => {
-      setCurrentStep(prev => prev + 1);
-      setQueens(animationSteps[currentStep + 1] || animationSteps[animationSteps.length - 1]);
+      const nextStep = currentStep + 1;
+      setCurrentStep(nextStep);
+      setQueens(animationStates[nextStep] || []);
+      if (solutionsFoundIndices.includes(nextStep)) {
+        const newIndex = solutionsFoundIndices.indexOf(nextStep);
+        setCurrentSolutionDisplayIndex(newIndex + 1);
+        toast({
+            title: `Solution ${newIndex + 1} Found!`,
+            description: `A valid placement for ${n} queens. Animation will continue...`
+        });
+      }
     }, animationSpeed);
 
     return () => clearTimeout(timer);
-  }, [isPlaying, currentStep, animationSteps, animationSpeed, isSolved]);
+  }, [isPlaying, currentStep, animationStates, animationSpeed, isLoading, solutionsFoundIndices, toast, allSolutionsRaw.length, n]);
 
   const togglePlayPause = () => setIsPlaying(prev => !prev);
 
   const handleSpeedChange = (value: number[]) => {
-    setAnimationSpeed(MAX_SPEED_MS + MIN_SPEED_MS - value[0]); // Slider is visually inverse to speed
+    setAnimationSpeed(MAX_SPEED_MS + MIN_SPEED_MS - value[0]);
   };
   
-  const increaseSpeed = () => setAnimationSpeed(prev => Math.max(MIN_SPEED_MS, prev - 200));
-  const decreaseSpeed = () => setAnimationSpeed(prev => Math.min(MAX_SPEED_MS, prev + 200));
+  const increaseSpeed = () => setAnimationSpeed(prev => Math.max(MIN_SPEED_MS, prev - 100));
+  const decreaseSpeed = () => setAnimationSpeed(prev => Math.min(MAX_SPEED_MS, prev + 100));
 
   const resetAnimation = () => {
-    setCurrentStep(0);
-    setQueens(animationSteps[0] || []);
-    setIsPlaying(true);
-    setIsSolved(false);
-  };
-
-  const skipToResult = () => {
-    if (solution) {
-      router.push(`/results/${n}?solution=${JSON.stringify(solution)}`);
-    } else {
-       toast({ title: "Error", description: "Solution not available to skip.", variant: "destructive" });
+    if (animationStates.length > 0) {
+      setCurrentStep(0);
+      setQueens(animationStates[0] || []);
+      setIsPlaying(true);
+      setCurrentSolutionDisplayIndex(0);
+       if (solutionsFoundIndices.includes(0)) {
+         setCurrentSolutionDisplayIndex(1);
+       }
     }
   };
 
-  if (animationSteps.length === 0 && !solution) {
+  const skipToResult = () => {
+    if (allSolutionsRaw.length > 0) {
+      const firstSolution = allSolutionsRaw[0];
+      router.push(`/results/${n}?solution=${JSON.stringify(firstSolution)}&allSolutionsCount=${allSolutionsRaw.length}`);
+    } else {
+       toast({ title: "No Solution Found", description: `Cannot skip to results as no solution has been found for N=${n}.`, variant: "destructive" });
+    }
+  };
+  
+  const getStatusMessage = () => {
+    if (isLoading) return `Loading animation for N=${n}...`;
+    if (currentStep >= animationStates.length -1) {
+      return allSolutionsRaw.length > 0 ? 
+        `Animation complete. Found ${allSolutionsRaw.length} solution(s).` :
+        `Animation complete. No solutions found for N=${n}.`;
+    }
+    if (solutionsFoundIndices.includes(currentStep)) {
+        return `Solution ${currentSolutionDisplayIndex} found! Step ${currentStep + 1} of ${animationStates.length}.`;
+    }
+    return `Visualizing... Step ${currentStep + 1} of ${animationStates.length}.`;
+  };
+
+
+  if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <Loader2 className="h-12 w-12 animate-spin text-primary mb-4" />
@@ -103,24 +159,44 @@ export default function SolverClient({ initialN }: SolverClientProps) {
       </div>
     );
   }
+  
+  if (animationStates.length <= 1 && allSolutionsRaw.length === 0 && (n === 2 || n === 3 || n < 1)) {
+     return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-6">
+        <Card className="w-full max-w-md shadow-xl">
+          <CardHeader className="items-center">
+            <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
+            <CardTitle className="text-2xl font-semibold text-destructive">No Solution Possible for N={n}</CardTitle>
+            <CardDescription>The N-Queen problem does not have a solution for this N value.</CardDescription>
+          </CardHeader>
+          <CardFooter>
+            <Button onClick={() => router.push('/input-queens')} className="w-full">
+              Try a Different N
+            </Button>
+          </CardFooter>
+        </Card>
+      </div>
+    );
+  }
+
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-6">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 space-y-6">
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
-          <CardTitle className="text-3xl font-semibold text-primary">N-Queen Solver: {n}x{n}</CardTitle>
-          <CardDescription>
-            {isSolved ? "Solution found!" : `Visualizing queen placement... Step ${currentStep + 1} of ${animationSteps.length}`}
+          <CardTitle className="text-3xl font-semibold text-primary text-center">N-Queen Solver: {n}x{n}</CardTitle>
+          <CardDescription className="text-center min-h-[20px]">
+            {getStatusMessage()}
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Chessboard sizeN={n} queens={queens} className="mx-auto max-w-full w-[500px] h-auto aspect-square" />
+          <Chessboard sizeN={n} queens={queens} className="mx-auto max-w-full w-[400px] sm:w-[500px] h-auto aspect-square" />
         </CardContent>
       </Card>
 
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
-          <CardTitle className="text-xl">Controls</CardTitle>
+          <CardTitle className="text-xl text-center">Controls</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex items-center justify-center space-x-2">
@@ -132,8 +208,8 @@ export default function SolverClient({ initialN }: SolverClientProps) {
                     id="speed-slider"
                     min={MIN_SPEED_MS}
                     max={MAX_SPEED_MS}
-                    step={100}
-                    value={[MAX_SPEED_MS + MIN_SPEED_MS - animationSpeed]} // Slider is visually inverse to speed
+                    step={50}
+                    value={[MAX_SPEED_MS + MIN_SPEED_MS - animationSpeed]}
                     onValueChange={handleSpeedChange}
                     className="w-full max-w-xs"
                     aria-label="Animation speed control"
@@ -143,11 +219,11 @@ export default function SolverClient({ initialN }: SolverClientProps) {
                 </Button>
             </div>
             <p className="text-center text-sm text-muted-foreground">
-                Current speed: {((animationSpeed)/1000).toFixed(1)}s per step
+                Speed: {((animationSpeed)/1000).toFixed(2)}s per step
             </p>
            
             <div className="flex justify-center items-center space-x-3 pt-2">
-                <Button onClick={togglePlayPause} variant="outline" size="icon" title={isPlaying ? "Pause" : "Play"} disabled={isSolved}>
+                <Button onClick={togglePlayPause} variant="outline" size="icon" title={isPlaying ? "Pause" : "Play"} disabled={currentStep >= animationStates.length -1}>
                 {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
                 </Button>
                 <Button onClick={resetAnimation} variant="outline" size="icon" title="Reset Animation">
@@ -159,9 +235,9 @@ export default function SolverClient({ initialN }: SolverClientProps) {
           <Button onClick={() => router.push('/input-queens')} variant="secondary" className="w-full sm:w-auto">
             Change N
           </Button>
-          <Button onClick={skipToResult} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={!solution}>
+          <Button onClick={skipToResult} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={allSolutionsRaw.length === 0}>
             <SkipForward className="mr-2 h-5 w-5" />
-            Show Result Instantly
+            Show First Result
           </Button>
         </CardFooter>
       </Card>
