@@ -1,3 +1,4 @@
+src/components/queen-solver/Chessboard.tsx
 "use client";
 
 import type { QueenPosition } from '@/lib/nqueens';
@@ -8,9 +9,10 @@ interface ChessboardProps {
   sizeN: number;
   queens: QueenPosition[];
   className?: string;
+  isSolutionState?: boolean; // New prop for highlighting
 }
 
-export default function Chessboard({ sizeN, queens, className }: ChessboardProps) {
+export default function Chessboard({ sizeN, queens, className, isSolutionState = false }: ChessboardProps) {
   const boardCells = [];
   const cellTotalSize = sizeN + 1; // For labels
 
@@ -70,10 +72,14 @@ export default function Chessboard({ sizeN, queens, className }: ChessboardProps
 
   return (
     <div 
-      className={cn("grid border border-border shadow-lg rounded-md overflow-hidden bg-card p-1", className)} 
+      className={cn(
+        "grid shadow-lg rounded-md overflow-hidden bg-card p-1 transition-all duration-300",
+        isSolutionState ? "border-2 border-accent ring-2 ring-accent ring-offset-background ring-offset-2" : "border border-border",
+        className
+      )} 
       style={gridStyle}
       role="grid"
-      aria-label={`Chessboard of size ${sizeN}x${sizeN}`}
+      aria-label={`Chessboard of size ${sizeN}x${sizeN}${isSolutionState ? ', solution highlighted' : ''}`}
     >
       {boardCells}
       <style jsx global>{`

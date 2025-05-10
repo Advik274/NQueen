@@ -1,3 +1,4 @@
+src/components/queen-solver/SolverClient.tsx
 "use client";
 
 import { useState, useEffect, useCallback } from 'react';
@@ -52,7 +53,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     if (newAnimationStates.length > 0) {
       setQueens(newAnimationStates[0] || []);
     } else {
-      setQueens([]); // Should not happen if getBacktrackingAnimationSteps ensures at least an empty state
+      setQueens([]); 
     }
     
     setCurrentStep(0);
@@ -60,7 +61,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     setCurrentSolutionDisplayIndex(0);
     setIsLoading(false);
 
-    if (newAllSolutionsRaw.length === 0 && newAnimationStates.length <=1 && (n === 2 || n === 3 || n < 1) ) { // check for trivial no solution cases
+    if (newAllSolutionsRaw.length === 0 && newAnimationStates.length <=1 && (n === 2 || n === 3 || n < 1) ) { 
         toast({
             title: "No Solutions Possible",
             description: `The N-Queen problem has no solutions for N=${n}.`,
@@ -130,8 +131,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
 
   const skipToResult = () => {
     if (allSolutionsRaw.length > 0) {
-      const firstSolution = allSolutionsRaw[0];
-      router.push(`/results/${n}?solution=${JSON.stringify(firstSolution)}&allSolutionsCount=${allSolutionsRaw.length}`);
+      router.push(`/results/${n}`);
     } else {
        toast({ title: "No Solution Found", description: `Cannot skip to results as no solution has been found for N=${n}.`, variant: "destructive" });
     }
@@ -190,7 +190,12 @@ export default function SolverClient({ initialN }: SolverClientProps) {
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Chessboard sizeN={n} queens={queens} className="mx-auto max-w-full w-[400px] sm:w-[500px] h-auto aspect-square" />
+          <Chessboard 
+            sizeN={n} 
+            queens={queens} 
+            className="mx-auto max-w-full w-[400px] sm:w-[500px] h-auto aspect-square"
+            isSolutionState={solutionsFoundIndices.includes(currentStep)}
+          />
         </CardContent>
       </Card>
 
@@ -237,7 +242,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
           </Button>
           <Button onClick={skipToResult} className="w-full sm:w-auto bg-accent hover:bg-accent/90 text-accent-foreground" disabled={allSolutionsRaw.length === 0}>
             <SkipForward className="mr-2 h-5 w-5" />
-            Show First Result
+            Show All Results
           </Button>
         </CardFooter>
       </Card>
