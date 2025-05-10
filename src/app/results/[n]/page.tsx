@@ -1,6 +1,6 @@
 src/app/results/[n]/page.tsx
 import ResultsClient from '@/components/queen-solver/ResultsClient';
-import { solveNQueensAllSolutions } from '@/lib/nqueens'; // solveNQueensOneSolution no longer needed here
+import { solveNQueensAllSolutions } from '@/lib/nqueens';
 import { AlertTriangle } from 'lucide-react';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -8,7 +8,6 @@ import Link from 'next/link';
 
 interface ResultsPageProps {
   params: { n: string };
-  searchParams: { /* solution?: string; allSolutionsCount?: string; */ }; // These are no longer strictly needed for core logic
 }
 
 export default function ResultsPage({ params }: ResultsPageProps) {
@@ -36,12 +35,6 @@ export default function ResultsPage({ params }: ResultsPageProps) {
   }
 
   const allSolutions = solveNQueensAllSolutions(n);
-  // allSolutionsCount is derived from allSolutions.length in ResultsClient
-
-  // No specific error here if allSolutions is empty (e.g., for N=2, N=3)
-  // ResultsClient will handle the display for zero solutions.
-  // The previous "Solution Display Error" for inconsistent single solution is removed
-  // as we now pass all solutions.
 
   return <ResultsClient n={n} allSolutionsRaw={allSolutions} />;
 }

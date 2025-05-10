@@ -1,4 +1,3 @@
-src/components/queen-solver/ResultsClient.tsx
 "use client";
 
 import { useRouter } from 'next/navigation';

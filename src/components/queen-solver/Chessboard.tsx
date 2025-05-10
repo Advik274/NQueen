@@ -1,4 +1,3 @@
-src/components/queen-solver/Chessboard.tsx
 "use client";
 
 import type { QueenPosition } from '@/lib/nqueens';
