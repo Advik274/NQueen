@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import Chessboard from './Chessboard';
 import type { QueenPosition } from '@/lib/nqueens';
@@ -19,6 +19,7 @@ interface SolverClientProps {
 const MIN_SPEED_MS = 100; 
 const MAX_SPEED_MS = 2000;
 const DEFAULT_SPEED_MS = 500; 
+const SOLUTION_PAUSE_MS = 1000;
 
 export default function SolverClient({ initialN }: SolverClientProps) {
   const router = useRouter();
@@ -35,10 +36,18 @@ export default function SolverClient({ initialN }: SolverClientProps) {
   const [animationSpeed, setAnimationSpeed] = useState<number>(DEFAULT_SPEED_MS);
   
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [currentSolutionDisplayIndex, setCurrentSolutionDisplayIndex] = useState<number>(0); // For tracking which solution # is found
+  const [currentSolutionDisplayIndex, setCurrentSolutionDisplayIndex] = useState<number>(0);
+  const [isWaitingAfterSolution, setIsWaitingAfterSolution] = useState(false);
+
+  // Ref to track current step for cleanup, avoiding stale closures
+  const currentStepRef = useRef(currentStep);
+  useEffect(() => {
+    currentStepRef.current = currentStep;
+  }, [currentStep]);
 
   useEffect(() => {
     setIsLoading(true);
+    setIsWaitingAfterSolution(false); // Reset pause state when N changes
     const { 
       animationStates: newAnimationStates, 
       solutionsFoundIndices: newSolutionsFoundIndices, 
@@ -71,10 +80,10 @@ export default function SolverClient({ initialN }: SolverClientProps) {
   }, [n, toast]);
 
   useEffect(() => {
-    if (!isPlaying || currentStep >= animationStates.length -1 || isLoading) {
-      if (currentStep >= animationStates.length -1 && animationStates.length > 0 && !isLoading) {
+    if (!isPlaying || isLoading) {
+      if (currentStepRef.current >= animationStates.length - 1 && !isLoading && animationStates.length > 0) {
         setIsPlaying(false); // Animation ended
-        if (allSolutionsRaw.length === 0 && (n !==2 && n !== 3 && n>=1)) {
+         if (allSolutionsRaw.length === 0 && (n !==2 && n !== 3 && n>=1)) {
              toast({
                 title: "Search Complete",
                 description: `No solutions found for N=${n} after exploring all possibilities.`,
@@ -89,23 +98,46 @@ export default function SolverClient({ initialN }: SolverClientProps) {
       }
       return;
     }
+    if (currentStepRef.current >= animationStates.length - 1 && animationStates.length > 0) {
+      setIsPlaying(false); // Ensure animation stops at the very end
+      return;
+    }
 
-    const timer = setTimeout(() => {
-      const nextStep = currentStep + 1;
-      setCurrentStep(nextStep);
-      setQueens(animationStates[nextStep] || []);
-      if (solutionsFoundIndices.includes(nextStep)) {
-        const newIndex = solutionsFoundIndices.indexOf(nextStep);
-        setCurrentSolutionDisplayIndex(newIndex + 1);
-        toast({
-            title: `Solution ${newIndex + 1} Found!`,
-            description: `A valid placement for ${n} queens. Animation will continue...`
-        });
-      }
-    }, animationSpeed);
+    let timerId: NodeJS.Timeout;
 
-    return () => clearTimeout(timer);
-  }, [isPlaying, currentStep, animationStates, animationSpeed, isLoading, solutionsFoundIndices, toast, allSolutionsRaw.length, n]);
+    if (isWaitingAfterSolution) {
+      timerId = setTimeout(() => {
+        setIsWaitingAfterSolution(false);
+        // The effect will re-run with isWaitingAfterSolution=false,
+        // and if isPlaying is still true, it will schedule the next actual animation step.
+      }, SOLUTION_PAUSE_MS);
+    } else {
+      timerId = setTimeout(() => {
+        const nextStep = currentStepRef.current + 1;
+        
+        if (nextStep >= animationStates.length) {
+           setIsPlaying(false); // Reached end of animation states
+           return;
+        }
+
+        setCurrentStep(nextStep);
+        setQueens(animationStates[nextStep] || []);
+
+        if (solutionsFoundIndices.includes(nextStep)) {
+          const newIndex = solutionsFoundIndices.indexOf(nextStep);
+          setCurrentSolutionDisplayIndex(newIndex + 1);
+          toast({
+              title: `Solution ${newIndex + 1} Found!`,
+              description: `A valid placement for ${n} queens. Animation will pause for 1s...`
+          });
+          setIsWaitingAfterSolution(true); // Pause after this step is shown
+        }
+      }, animationSpeed);
+    }
+
+    return () => clearTimeout(timerId);
+  }, [isPlaying, currentStep, animationStates, animationSpeed, isLoading, solutionsFoundIndices, toast, n, allSolutionsRaw.length, isWaitingAfterSolution]);
+
 
   const togglePlayPause = () => setIsPlaying(prev => !prev);
 
@@ -122,6 +154,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
       setQueens(animationStates[0] || []);
       setIsPlaying(true);
       setCurrentSolutionDisplayIndex(0);
+      setIsWaitingAfterSolution(false); // Reset pause state
        if (solutionsFoundIndices.includes(0)) {
          setCurrentSolutionDisplayIndex(1);
        }
@@ -138,10 +171,13 @@ export default function SolverClient({ initialN }: SolverClientProps) {
   
   const getStatusMessage = () => {
     if (isLoading) return `Loading animation for N=${n}...`;
-    if (currentStep >= animationStates.length -1) {
+    if (currentStep >= animationStates.length -1 && animationStates.length > 0) {
       return allSolutionsRaw.length > 0 ? 
         `Animation complete. Found ${allSolutionsRaw.length} solution(s).` :
         `Animation complete. No solutions found for N=${n}.`;
+    }
+    if (isWaitingAfterSolution) {
+        return `Solution ${currentSolutionDisplayIndex} found! Pausing... Step ${currentStep + 1} of ${animationStates.length}.`;
     }
     if (solutionsFoundIndices.includes(currentStep)) {
         return `Solution ${currentSolutionDisplayIndex} found! Step ${currentStep + 1} of ${animationStates.length}.`;
@@ -204,7 +240,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
         </CardHeader>
         <CardContent className="space-y-4">
             <div className="flex items-center justify-center space-x-2">
-                <Button variant="outline" size="icon" onClick={decreaseSpeed} title="Decrease Speed (Slower)">
+                <Button variant="outline" size="icon" onClick={decreaseSpeed} title="Decrease Speed (Slower)" disabled={isWaitingAfterSolution}>
                     <Minus className="h-5 w-5" />
                 </Button>
                 <Label htmlFor="speed-slider" className="sr-only">Animation Speed</Label>
@@ -217,8 +253,9 @@ export default function SolverClient({ initialN }: SolverClientProps) {
                     onValueChange={handleSpeedChange}
                     className="w-full max-w-xs"
                     aria-label="Animation speed control"
+                    disabled={isWaitingAfterSolution}
                 />
-                <Button variant="outline" size="icon" onClick={increaseSpeed} title="Increase Speed (Faster)">
+                <Button variant="outline" size="icon" onClick={increaseSpeed} title="Increase Speed (Faster)" disabled={isWaitingAfterSolution}>
                     <Plus className="h-5 w-5" />
                 </Button>
             </div>
@@ -227,7 +264,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
             </p>
            
             <div className="flex justify-center items-center space-x-3 pt-2">
-                <Button onClick={togglePlayPause} variant="outline" size="icon" title={isPlaying ? "Pause" : "Play"} disabled={currentStep >= animationStates.length -1}>
+                <Button onClick={togglePlayPause} variant="outline" size="icon" title={isPlaying ? "Pause" : "Play"} disabled={currentStep >= animationStates.length -1 && animationStates.length > 0 || isWaitingAfterSolution}>
                 {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
                 </Button>
                 <Button onClick={resetAnimation} variant="outline" size="icon" title="Reset Animation">
@@ -248,3 +285,4 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     </div>
   );
 }
+
