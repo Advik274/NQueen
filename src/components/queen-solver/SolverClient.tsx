@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -9,7 +8,7 @@ import { getBacktrackingAnimationSteps } from '@/lib/nqueens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label';
+import { Label } from '@/components/ui/label'; // Label might not be used directly here anymore
 import { Loader2, Play, Pause, RotateCcw, SkipForward, Plus, Minus, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -49,7 +48,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
   useEffect(() => {
     setIsLoading(true);
     setIsWaitingAfterSolution(false);
-    setTriggerBlink(false); // Reset blink state when N changes
+    setTriggerBlink(false); 
     const { 
       animationStates: newAnimationStates, 
       solutionsFoundIndices: newSolutionsFoundIndices, 
@@ -81,13 +80,12 @@ export default function SolverClient({ initialN }: SolverClientProps) {
 
   }, [n, toast]);
   
-  // Effect to automatically turn off blink after animation duration
   useEffect(() => {
     let blinkTimeoutId: NodeJS.Timeout;
     if (triggerBlink) {
         blinkTimeoutId = setTimeout(() => {
             setTriggerBlink(false);
-        }, 1000); // Animation duration is 1s
+        }, 1000); 
     }
     return () => clearTimeout(blinkTimeoutId);
   }, [triggerBlink]);
@@ -141,10 +139,10 @@ export default function SolverClient({ initialN }: SolverClientProps) {
           toast({
               title: `Solution ${newIndex + 1} Found!`,
               description: `A valid placement for ${n} queens. Animation pausing...`,
-              variant: "default", // Using default variant for success
-              duration: SOLUTION_PAUSE_MS + 500, // Toast visible through pause
+              variant: "default", 
+              duration: SOLUTION_PAUSE_MS + 500, 
           });
-          setTriggerBlink(true); // Trigger blink animation
+          setTriggerBlink(true); 
           setIsWaitingAfterSolution(true); 
         }
       }, animationSpeed);
@@ -170,10 +168,10 @@ export default function SolverClient({ initialN }: SolverClientProps) {
       setIsPlaying(true);
       setCurrentSolutionDisplayIndex(0);
       setIsWaitingAfterSolution(false);
-      setTriggerBlink(false); // Reset blink state
+      setTriggerBlink(false); 
        if (solutionsFoundIndices.includes(0)) {
          setCurrentSolutionDisplayIndex(1);
-         setTriggerBlink(true); // If first step is a solution, blink
+         setTriggerBlink(true); 
        }
     }
   };
@@ -196,7 +194,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     if (isWaitingAfterSolution) {
         return `Solution ${currentSolutionDisplayIndex} found! Pausing... Step ${currentStep + 1} of ${animationStates.length}.`;
     }
-    if (solutionsFoundIndices.includes(currentStep)) { // This covers the moment it's found but before pause state fully kicks in
+    if (solutionsFoundIndices.includes(currentStep)) { 
         return `Displaying Solution ${currentSolutionDisplayIndex}. Step ${currentStep + 1} of ${animationStates.length}.`;
     }
     return `Visualizing... Step ${currentStep + 1} of ${animationStates.length}.`;
@@ -257,46 +255,71 @@ export default function SolverClient({ initialN }: SolverClientProps) {
         <CardHeader>
           <CardTitle className="text-xl text-center">Controls</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
+        <CardContent className="space-y-6">
+          {/* Slider Control Unit */}
+          <div className="space-y-3">
             <div className="flex items-center justify-center space-x-2">
-                <Button variant="outline" size="icon" onClick={decreaseSpeed} title="Decrease Speed (Slower)" disabled={isWaitingAfterSolution}>
-                    <Minus className="h-5 w-5" />
-                </Button>
-                <div className="relative w-full max-w-xs px-2"> {/* Wrapper for slider and ticks */}
-                  <Slider
-                      id="speed-slider"
-                      min={MIN_SPEED_MS}
-                      max={MAX_SPEED_MS}
-                      step={50}
-                      value={[MAX_SPEED_MS + MIN_SPEED_MS - animationSpeed]}
-                      onValueChange={handleSpeedChange}
-                      className="w-full"
-                      aria-label="Animation speed control"
-                      disabled={isWaitingAfterSolution}
-                  />
-                  {/* Decorative Ticks */}
-                  <div className="mt-2 flex justify-between" aria-hidden="true">
-                      {Array.from({ length: 5 }).map((_, i) => (
-                          <div key={`tick-${i}`} className="h-2 w-px bg-muted-foreground/60"></div>
-                      ))}
-                  </div>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={decreaseSpeed} 
+                title="Slower" 
+                disabled={isWaitingAfterSolution || animationSpeed >= MAX_SPEED_MS}
+              >
+                <Minus className="h-5 w-5" />
+              </Button>
+              <div className="flex-grow max-w-xs relative px-1">
+                <Slider
+                  id="speed-slider"
+                  min={MIN_SPEED_MS} 
+                  max={MAX_SPEED_MS} 
+                  step={50}
+                  value={[MAX_SPEED_MS + MIN_SPEED_MS - animationSpeed]}
+                  onValueChange={handleSpeedChange}
+                  className="w-full"
+                  aria-label="Animation speed control"
+                  disabled={isWaitingAfterSolution}
+                />
+                <div className="mt-1.5 flex justify-between text-xs text-muted-foreground" aria-hidden="true">
+                  <span>Slow</span>
+                  <span>Fast</span>
                 </div>
-                <Button variant="outline" size="icon" onClick={increaseSpeed} title="Increase Speed (Faster)" disabled={isWaitingAfterSolution}>
-                    <Plus className="h-5 w-5" />
-                </Button>
+              </div>
+              <Button 
+                variant="outline" 
+                size="icon" 
+                onClick={increaseSpeed} 
+                title="Faster" 
+                disabled={isWaitingAfterSolution || animationSpeed <= MIN_SPEED_MS}
+              >
+                <Plus className="h-5 w-5" />
+              </Button>
             </div>
             <p className="text-center text-sm text-muted-foreground">
-                Speed: {(animationSpeed / 1000).toFixed(2)}s per step
+              Speed: {(animationSpeed / 1000).toFixed(2)}s per step
             </p>
+          </div>
            
-            <div className="flex justify-center items-center space-x-3 pt-2">
-                <Button onClick={togglePlayPause} variant="outline" size="icon" title={isPlaying ? "Pause" : "Play"} disabled={(currentStep >= animationStates.length -1 && animationStates.length > 0) || isWaitingAfterSolution}>
-                {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
-                </Button>
-                <Button onClick={resetAnimation} variant="outline" size="icon" title="Reset Animation">
-                    <RotateCcw className="h-6 w-6" />
-                </Button>
-            </div>
+          {/* Play/Pause/Reset Controls */}
+          <div className="flex justify-center items-center space-x-3 pt-4 border-t border-border/50 mt-4">
+            <Button 
+              onClick={togglePlayPause} 
+              variant="outline" 
+              size="icon" 
+              title={isPlaying ? "Pause Animation" : "Play Animation"} 
+              disabled={(currentStep >= animationStates.length - 1 && animationStates.length > 0) || isWaitingAfterSolution}
+            >
+              {isPlaying ? <Pause className="h-6 w-6" /> : <Play className="h-6 w-6" />}
+            </Button>
+            <Button 
+              onClick={resetAnimation} 
+              variant="outline" 
+              size="icon" 
+              title="Reset Animation"
+            >
+              <RotateCcw className="h-6 w-6" />
+            </Button>
+          </div>
         </CardContent>
         <CardFooter className="flex flex-col sm:flex-row justify-between gap-3 pt-6">
           <Button onClick={() => router.push('/input-queens')} variant="secondary" className="w-full sm:w-auto">
@@ -311,4 +334,3 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     </div>
   );
 }
-
