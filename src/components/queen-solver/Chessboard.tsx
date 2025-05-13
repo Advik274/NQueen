@@ -59,7 +59,7 @@ export default function Chessboard({
           key={`${r}-${c}`}
           className={cn(
             "aspect-square flex items-center justify-center border border-border/30",
-            isDark ? 'bg-primary/80' : 'bg-background', 
+            isDark ? 'bg-primary' : 'bg-background', // Changed bg-primary/80 to bg-primary
             "transition-colors duration-300"
           )}
           data-testid={`cell-${r}-${c}`}
@@ -113,4 +113,3 @@ export default function Chessboard({
     </div>
   );
 }
-
