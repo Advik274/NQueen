@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
@@ -8,7 +9,6 @@ import { getBacktrackingAnimationSteps } from '@/lib/nqueens';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Slider } from '@/components/ui/slider';
-import { Label } from '@/components/ui/label'; // Label might not be used directly here anymore
 import { Loader2, Play, Pause, RotateCcw, SkipForward, Plus, Minus, AlertTriangle } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 
@@ -41,9 +41,22 @@ export default function SolverClient({ initialN }: SolverClientProps) {
   const [triggerBlink, setTriggerBlink] = useState(false);
 
   const currentStepRef = useRef(currentStep);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+
   useEffect(() => {
     currentStepRef.current = currentStep;
   }, [currentStep]);
+
+  const playTickSound = useCallback(() => {
+    if (audioRef.current) {
+      audioRef.current.volume = 0.3; // Adjust volume to be less intrusive
+      audioRef.current.currentTime = 0; // Rewind to start
+      audioRef.current.play().catch(error => {
+        // This can happen if the browser blocks autoplay or due to other reasons.
+        console.warn("Tick sound playback failed. User interaction might be needed to enable audio or the sound file might be missing (/public/sounds/tick.mp3).", error);
+      });
+    }
+  }, []);
 
   useEffect(() => {
     setIsLoading(true);
@@ -70,13 +83,20 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     setCurrentSolutionDisplayIndex(0);
     setIsLoading(false);
 
-    if (newAllSolutionsRaw.length === 0 && newAnimationStates.length <=1 && (n === 2 || n === 3 || n < 1) ) { 
+    if (newAllSolutionsRaw.length === 0 && newAnimationStates.length <=1 && (n === 2 || n === 3 || n < 1 || n > 12) ) { 
         toast({
             title: "No Solutions Possible",
-            description: `The N-Queen problem has no solutions for N=${n}.`,
+            description: `The N-Queen problem has no solutions for N=${n}. Or N is out of supported range (1, 4-12).`,
+            variant: "destructive",
+        });
+    } else if (n > 12) {
+        toast({
+            title: "Unsupported N Value",
+            description: `N=${n} is too large for animated visualization. Please choose N between 1 or 4-12.`,
             variant: "destructive",
         });
     }
+
 
   }, [n, toast]);
   
@@ -95,7 +115,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     if (!isPlaying || isLoading) {
       if (currentStepRef.current >= animationStates.length - 1 && !isLoading && animationStates.length > 0) {
         setIsPlaying(false); 
-         if (allSolutionsRaw.length === 0 && (n !==2 && n !== 3 && n>=1)) {
+         if (allSolutionsRaw.length === 0 && (n !==2 && n !== 3 && n>=1 && n <=12)) {
              toast({
                 title: "Search Complete",
                 description: `No solutions found for N=${n} after exploring all possibilities.`,
@@ -120,6 +140,12 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     if (isWaitingAfterSolution) {
       timerId = setTimeout(() => {
         setIsWaitingAfterSolution(false);
+        // Resume playing sound for the next step if animation continues automatically
+        if(isPlaying && currentStepRef.current < animationStates.length - 1) {
+            // Play sound for the step that will be shown after the pause
+            // This is tricky, as the sound should correspond to the *next* step's queen placement
+            // For now, sound is played when setQueens is called.
+        }
       }, SOLUTION_PAUSE_MS);
     } else {
       timerId = setTimeout(() => {
@@ -132,6 +158,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
 
         setCurrentStep(nextStep);
         setQueens(animationStates[nextStep] || []);
+        playTickSound(); // Play sound for the new step
 
         if (solutionsFoundIndices.includes(nextStep)) {
           const newIndex = solutionsFoundIndices.indexOf(nextStep);
@@ -149,7 +176,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     }
 
     return () => clearTimeout(timerId);
-  }, [isPlaying, currentStep, animationStates, animationSpeed, isLoading, solutionsFoundIndices, toast, n, allSolutionsRaw.length, isWaitingAfterSolution]);
+  }, [isPlaying, currentStep, animationStates, animationSpeed, isLoading, solutionsFoundIndices, toast, n, allSolutionsRaw.length, isWaitingAfterSolution, playTickSound, currentSolutionDisplayIndex]);
 
 
   const togglePlayPause = () => setIsPlaying(prev => !prev);
@@ -210,14 +237,18 @@ export default function SolverClient({ initialN }: SolverClientProps) {
     );
   }
   
-  if (animationStates.length <= 1 && allSolutionsRaw.length === 0 && (n === 2 || n === 3 || n < 1)) {
+  if ((animationStates.length <= 1 && allSolutionsRaw.length === 0 && (n === 2 || n === 3 || n < 1 || n > 12)) || (n > 12 && isLoading) ) {
      return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4 space-y-6">
         <Card className="w-full max-w-md shadow-xl">
           <CardHeader className="items-center">
             <AlertTriangle className="h-16 w-16 text-destructive mb-4" />
-            <CardTitle className="text-2xl font-semibold text-destructive">No Solution Possible for N={n}</CardTitle>
-            <CardDescription>The N-Queen problem does not have a solution for this N value.</CardDescription>
+            <CardTitle className="text-2xl font-semibold text-destructive">
+                { n > 12 ? `Unsupported N=${n}` : `No Solution Possible for N=${n}`}
+            </CardTitle>
+            <CardDescription>
+                { n > 12 ? `Visualizing N=${n} is too resource-intensive. Please select N between 1 or 4-12.` : `The N-Queen problem does not have a solution for N=${n}.`}
+            </CardDescription>
           </CardHeader>
           <CardFooter>
             <Button onClick={() => router.push('/input-queens')} className="w-full">
@@ -233,6 +264,9 @@ export default function SolverClient({ initialN }: SolverClientProps) {
 
   return (
     <div className="flex flex-col items-center justify-center min-h-screen bg-background p-4 space-y-6">
+      {/* Audio element for tick sound. NOTE: User needs to provide /public/sounds/tick.mp3 */}
+      <audio ref={audioRef} src="/sounds/tick.mp3" preload="auto" />
+
       <Card className="w-full max-w-2xl shadow-xl">
         <CardHeader>
           <CardTitle className="text-3xl font-semibold text-primary text-center">N-Queen Solver: {n}x{n}</CardTitle>
@@ -276,7 +310,7 @@ export default function SolverClient({ initialN }: SolverClientProps) {
                   step={50}
                   value={[MAX_SPEED_MS + MIN_SPEED_MS - animationSpeed]}
                   onValueChange={handleSpeedChange}
-                  className="w-full"
+                  className="w-full [&>span:first-child]:h-2 [&>span:first-child_span]:h-2 [&>span:last-child]:h-5 [&>span:last-child]:w-5" // Style track and thumb
                   aria-label="Animation speed control"
                   disabled={isWaitingAfterSolution}
                 />
