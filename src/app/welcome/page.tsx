@@ -11,9 +11,9 @@ export default function WelcomePage() {
     <div className="flex flex-col items-center justify-center min-h-screen bg-primary text-primary-foreground p-4">
       <Card className="w-full max-w-md text-center shadow-2xl bg-card text-card-foreground">
         <CardHeader>
-          <CardTitle className="text-4xl font-bold text-primary">Welcome to Queen Solver</CardTitle>
+          <CardTitle className="text-4xl font-bold text-primary">N Queen</CardTitle>
           <CardDescription className="text-lg text-muted-foreground pt-2">
-            Visualize the classic N-Queen problem using AI-powered insights and animations.
+            Visualize the classic N-Queen problem.
           </CardDescription>
         </CardHeader>
         <CardContent>
