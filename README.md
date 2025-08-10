@@ -2,7 +2,7 @@
 
 Queen Solver is an interactive web application built with Next.js that brings the classic N-Queens problem to life. It provides a step-by-step visualization of the backtracking algorithm used to find solutions, offering an engaging way to understand this complex computational puzzle.
 
-![Queen Solver Screenshot](image.png")
+![Queen Solver Screenshot](image.png)
 
 ## ✨ Features
 
