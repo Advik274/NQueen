@@ -27,7 +27,7 @@ export default function WelcomePage() {
         </CardContent>
       </Card>
       <footer className="absolute bottom-4 text-sm text-primary-foreground/70">
-        Powered by NextJS & ShadCN UI
+        Made with ❤️ by Arnav
       </footer>
     </div>
   );
